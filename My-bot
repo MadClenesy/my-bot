@@ -1,0 +1,140 @@
+from telegram import (
+    Bot, Update, KeyboardButton, ReplyKeyboardMarkup,
+    InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, ParseMode
+)
+from telegram.ext import (
+    Updater, CommandHandler, MessageHandler, Filters,
+    CallbackQueryHandler, PreCheckoutQueryHandler, CallbackContext
+)
+
+
+TOKEN = "7583697893:AAHpDzwKtpuNarQzowb2bsyuaiFvtnO67V8"
+ADMIN_ID = 361835441
+PROVIDER_TOKEN = "381764678:TEST:12345"  
+
+
+def start(update: Update, context: CallbackContext):
+
+    keyboard = [
+        [KeyboardButton("💎 Оформить подписку")],
+        [KeyboardButton("📬 Поддержка")],
+        [KeyboardButton("ℹ️ О проекте")]
+    ]
+    markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    update.message.reply_text(
+        "👋 Привет! Это бот проекта «Гавань».\n\n"
+        "Здесь можно:\n"
+        "🚀 Оформить подписку\n"
+        "🤝 Подать заявку на сотрудничество\n"
+        "💬 Узнать больше о проекте",
+        reply_markup=markup
+    )
+
+    contact_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Паблик", url="https://t.me/gavancinema")],
+        [InlineKeyboardButton("VK", url="https://vk.com/di.rexx")],
+        [InlineKeyboardButton("Instagram", url="https://instagram.com/di.rexx")]
+    ])
+    update.message.reply_text("📞 Мои контакты и соцсети:", reply_markup=contact_markup)
+
+
+def subscription(update: Update, context: CallbackContext):
+    buttons = [
+        [InlineKeyboardButton("Free — 0 ₽", callback_data="free")],
+        [InlineKeyboardButton("Light / База — 690 ₽", callback_data="light")],
+        [InlineKeyboardButton("Pro / Сообщество+ — 1990 ₽", callback_data="pro")],
+        [InlineKeyboardButton("Producer / Профи — 5900 ₽", callback_data="producer")],
+        [InlineKeyboardButton("Full Prod / Под ключ — 25000 ₽", callback_data="full")]
+    ]
+    markup = InlineKeyboardMarkup(buttons)
+    update.message.reply_text(
+        "Выбери уровень подписки:\n\n"
+        "Free — минимальный доступ: кейсы, база контактов частично, 1 заявка/мес\n"
+        "Light — материалы, чат, 1 запрос/мес\n"
+        "Pro — всё из Light + встречи, консультация, приоритет\n"
+        "Producer — персональные консультации, связи, упаковка проекта\n"
+        "Full Prod — полное сопровождение, 24/7 поддержка\n",
+        reply_markup=markup
+    )
+
+
+def button(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    level = query.data
+
+    prices = {
+        "light": 690,
+        "pro": 1990,
+        "producer": 5900,
+        "full": 25000
+    }
+
+    if level == "free":
+        query.edit_message_text("✅ Free-доступ активирован. Спасибо, что с нами!")
+    elif level in prices:
+        query.bot.send_invoice(
+            chat_id=query.message.chat.id,
+            title=f"Подписка {level.capitalize()}",
+            description="Подписка на услуги проекта «Гавань»",
+            payload=f"subscription_{level}",
+            provider_token=PROVIDER_TOKEN,
+            currency="RUB",
+            prices=[LabeledPrice("Подписка", prices[level] * 100)]
+        )
+
+
+def precheckout(update: Update, context: CallbackContext):
+    query = update.pre_checkout_query
+    if query.invoice_payload.startswith("subscription_"):
+        query.answer(ok=True)
+    else:
+        query.answer(ok=False, error_message="Ошибка платежа. Попробуйте позже.")
+
+def successful_payment(update: Update, context: CallbackContext):
+    payment = update.message.successful_payment
+    level = payment.invoice_payload.replace("subscription_", "")
+    update.message.reply_text(
+        f"🎉 Спасибо за оплату!\nПодписка *{level.capitalize()}* активирована ✅",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    context.bot.send_message(
+        ADMIN_ID,
+        f"💰 Новый платёж!\n"
+        f"Пользователь: @{update.message.from_user.username}\n"
+        f"Подписка: {level}\n"
+        f"Сумма: {payment.total_amount / 100} {payment.currency}"
+    )
+
+
+def support(update: Update, context: CallbackContext):
+    update.message.reply_text("✉️ Напиши сюда свой вопрос — команда «Гавани» ответит вручную 💬")
+
+
+def about(update: Update, context: CallbackContext):
+    update.message.reply_text(
+        "«Гавань» — это пространство поддержки творческих проектов.\n"
+        "Мы помогаем идеям воплощаться: соединяем людей, ресурсы и возможности 🌊"
+    )
+
+
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.regex("💎 Подписка"), subscription))
+    dp.add_handler(MessageHandler(Filters.regex("📬 Поддержка"), support))
+    dp.add_handler(MessageHandler(Filters.regex("ℹ️ О проекте"), about))
+    dp.add_handler(CallbackQueryHandler(button))
+    dp.add_handler(PreCheckoutQueryHandler(precheckout))
+    dp.add_handler(MessageHandler(Filters.successful_payment, successful_payment))
+
+    print("Бот запущен...")
+    updater.start_polling()
+    updater.idle()
+
+
+if __name__ == "__main__":
+    main()
