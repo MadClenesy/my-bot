@@ -9,8 +9,8 @@ from telegram.ext import (
 )
 
 # 🔑 Настройки
-TOKEN = "ВСТАВЬ_СВОЙ_ТОКЕН"
-ADMIN_CHAT_ID = 123456789  # свой Telegram ID (узнать через @userinfobot)
+TOKEN = "7583697893:AAHpDzwKtpuNarQzowb2bsyuaiFvtnO67V8"
+ADMIN_CHAT_ID = 361835441  # свой Telegram ID (узнать через @userinfobot)
 
 # Этапы диалога
 PROJECT, TEAM = range(2)
@@ -135,3 +135,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
